@@ -11,6 +11,7 @@ RUN npm install -g pnpm@10
 FROM base AS build
 
 ENV HUSKY=0
+ENV CI=true
 
 COPY .npmrc package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/server/package.json ./apps/server/package.json
