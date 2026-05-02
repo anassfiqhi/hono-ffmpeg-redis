@@ -21,7 +21,8 @@ const schema = z.object({
   CACHE_TTL_HOURS: z.coerce.number().int().positive().default(2160),
   CACHE_MAX_SIZE_MB: z.coerce.number().int().positive().default(1024),
 
-  AUTH_TOKEN: z.string().optional()
+  AUTH_TOKEN: z.string().optional(),
+  SPOTIFY_PUBLIC: z.stringbool().default(false)
 });
 
 const parsedEnv = schema.parse(process.env);

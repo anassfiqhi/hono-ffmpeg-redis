@@ -66,6 +66,11 @@ export function createApp() {
     return c.text(markdown);
   });
 
+  if (env.SPOTIFY_PUBLIC) {
+    logger.info('🎵 Spotify routes are public (SPOTIFY_PUBLIC=true)');
+    registerSpotifyRoutes(app);
+  }
+
   if (env.AUTH_TOKEN) {
     logger.info('🔒 Bearer authentication enabled');
     const expectedToken = env.AUTH_TOKEN;
@@ -87,7 +92,10 @@ export function createApp() {
   registerVideoRoutes(app);
   registerImageRoutes(app);
   registerMediaRoutes(app);
-  registerSpotifyRoutes(app);
+
+  if (!env.SPOTIFY_PUBLIC) {
+    registerSpotifyRoutes(app);
+  }
 
   return app;
 }
