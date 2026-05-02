@@ -18,7 +18,7 @@ COPY apps/worker/package.json ./apps/worker/package.json
 COPY apps/web/package.json ./apps/web/package.json
 COPY packages/shared/package.json ./packages/shared/package.json
 COPY .husky/install.mjs ./.husky/install.mjs
-RUN pnpm install --frozen-lockfile --prod
+RUN pnpm install --frozen-lockfile --prod --ignore-scripts
 
 FROM base AS build
 
