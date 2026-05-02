@@ -12,7 +12,7 @@ FROM base AS deps
 
 ENV HUSKY=0
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY .npmrc package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/server/package.json ./apps/server/package.json
 COPY apps/worker/package.json ./apps/worker/package.json
 COPY apps/web/package.json ./apps/web/package.json
@@ -24,7 +24,7 @@ FROM base AS build
 
 ENV HUSKY=0
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY .npmrc package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/server/package.json ./apps/server/package.json
 COPY apps/worker/package.json ./apps/worker/package.json
 COPY apps/web/package.json ./apps/web/package.json
