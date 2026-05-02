@@ -18,7 +18,7 @@ COPY .husky/install.mjs ./.husky/install.mjs
 RUN pnpm install --frozen-lockfile
 
 COPY . .
-RUN pnpm build:server && pnpm prune --prod
+RUN pnpm build:server
 
 FROM base AS runtime
 
