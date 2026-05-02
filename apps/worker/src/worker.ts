@@ -11,6 +11,7 @@ import { processVideoToMp4, processVideoExtractAudio, processVideoExtractFrames 
 import { processVideoToGif } from '@worker/queue/video/gif-processor';
 import { processImageToJpg, processImageResize } from '@worker/queue/image/processor';
 import { processMediaProbe } from '@worker/queue/media/processor';
+import { processSpotifyTrack, processSpotifyAlbum, processSpotifyPlaylist } from '@worker/queue/spotify/processor';
 
 await checkRedisHealth();
 
@@ -38,6 +39,12 @@ const worker = new Worker<unknown, JobResult>(
         return processImageResize(job as never);
       case JobType.MEDIA_PROBE:
         return processMediaProbe(job as never);
+      case JobType.SPOTIFY_TRACK:
+        return processSpotifyTrack(job as never);
+      case JobType.SPOTIFY_ALBUM:
+        return processSpotifyAlbum(job as never);
+      case JobType.SPOTIFY_PLAYLIST:
+        return processSpotifyPlaylist(job as never);
       default:
         throw new Error(`Unknown job type: ${job.name}`);
     }

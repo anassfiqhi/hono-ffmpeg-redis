@@ -9,7 +9,10 @@ export const JobType = {
   IMAGE_TO_JPG: 'image:jpg',
   VIDEO_TO_GIF: 'video:gif',
   IMAGE_RESIZE: 'image:resize',
-  MEDIA_PROBE: 'media:info'
+  MEDIA_PROBE: 'media:info',
+  SPOTIFY_TRACK: 'spotify:track',
+  SPOTIFY_ALBUM: 'spotify:album',
+  SPOTIFY_PLAYLIST: 'spotify:playlist'
 } as const;
 
 export type JobTypeName = (typeof JobType)[keyof typeof JobType];

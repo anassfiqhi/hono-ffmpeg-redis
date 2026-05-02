@@ -141,3 +141,62 @@ export function getOutputFilename(originalName: string, newExtension: string): s
 
   return baseName;
 }
+
+type SpotifyJobResult =
+  | { success: true; outputBuffer?: Buffer; outputUrl?: string; metadata?: Record<string, unknown> }
+  | { success: false; error: string };
+
+export async function processSpotifyJob(options: {
+  spotifyUrl: string;
+  jobType: JobTypeName;
+  outputExtension: string;
+  uploadToS3?: boolean;
+}): Promise<SpotifyJobResult> {
+  const { spotifyUrl, jobType, outputExtension, uploadToS3 = false } = options;
+
+  const jobId = randomUUID();
+  const jobDir = path.join(env.TEMP_DIR, jobId);
+  const outputPath = path.join(jobDir, `output.${outputExtension}`);
+  const outputDir = path.join(jobDir, 'tracks');
+
+  const cleanup = async () => {
+    await rm(jobDir, { recursive: true, force: true });
+  };
+
+  try {
+    await mkdir(jobDir, { recursive: true });
+
+    const payload: Record<string, unknown> = {
+      spotifyUrl,
+      outputPath,
+      outputDir,
+      uploadToS3
+    };
+
+    const job = await addJob(jobType, payload);
+    const rawResult = await job.waitUntilFinished(queueEvents, 300000);
+    const result = validateJobResult(rawResult);
+
+    if (!result.success) {
+      return { success: false, error: result.error ?? 'Unknown error' };
+    }
+
+    if (result.outputUrl) {
+      return { success: true, outputUrl: result.outputUrl, metadata: result.metadata };
+    }
+
+    if (result.outputPath) {
+      const outputBuffer = await readFile(result.outputPath);
+      return { success: true, outputBuffer, metadata: result.metadata };
+    }
+
+    return { success: false, error: 'No output produced' };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error)
+    };
+  } finally {
+    await cleanup();
+  }
+}

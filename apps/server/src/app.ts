@@ -9,6 +9,7 @@ import { registerAudioRoutes } from '~/components/audio/controller';
 import { registerVideoRoutes } from '~/components/video/controller';
 import { registerImageRoutes } from '~/components/image/controller';
 import { registerMediaRoutes } from '~/components/media/controller';
+import { registerSpotifyRoutes } from '~/components/spotify/controller';
 
 export function createApp() {
   const app = new OpenAPIHono();
@@ -86,6 +87,7 @@ export function createApp() {
   registerVideoRoutes(app);
   registerImageRoutes(app);
   registerMediaRoutes(app);
+  registerSpotifyRoutes(app);
 
   return app;
 }

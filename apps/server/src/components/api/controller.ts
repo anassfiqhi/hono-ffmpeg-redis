@@ -54,7 +54,13 @@ export function registerApiRoutes<T extends OpenAPIHono>(app: T) {
       { path: '/image/jpg/url', method: 'POST', description: 'Convert image to JPG and return S3 URL' },
       { path: '/image/resize', method: 'POST', description: 'Resize image' },
       { path: '/image/resize/url', method: 'POST', description: 'Resize image and return S3 URL' },
-      { path: '/media/info', method: 'POST', description: 'Probe media file metadata' }
+      { path: '/media/info', method: 'POST', description: 'Probe media file metadata' },
+      { path: '/spotify/track', method: 'POST', description: 'Download Spotify track as MP3' },
+      { path: '/spotify/track/url', method: 'POST', description: 'Download Spotify track and return S3 URL' },
+      { path: '/spotify/album', method: 'POST', description: 'Download Spotify album as ZIP of MP3s' },
+      { path: '/spotify/album/url', method: 'POST', description: 'Download Spotify album and return S3 URL' },
+      { path: '/spotify/playlist', method: 'POST', description: 'Download Spotify playlist as ZIP of MP3s' },
+      { path: '/spotify/playlist/url', method: 'POST', description: 'Download Spotify playlist and return S3 URL' }
     ];
 
     return c.json({ endpoints }, 200);
