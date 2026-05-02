@@ -6,32 +6,34 @@ FROM --platform=${FFMPEG_TARGET_PLATFORM} node:22.20.0-alpine AS base
 
 WORKDIR /app
 
+RUN npm install -g pnpm@10
+
 FROM base AS deps
 
 ENV HUSKY=0
 
-COPY package*.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/server/package.json ./apps/server/package.json
 COPY apps/worker/package.json ./apps/worker/package.json
 COPY apps/web/package.json ./apps/web/package.json
 COPY packages/shared/package.json ./packages/shared/package.json
 COPY .husky/install.mjs ./.husky/install.mjs
-RUN npm ci --omit=dev
+RUN pnpm install --frozen-lockfile --prod
 
 FROM base AS build
 
 ENV HUSKY=0
 
-COPY package*.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/server/package.json ./apps/server/package.json
 COPY apps/worker/package.json ./apps/worker/package.json
 COPY apps/web/package.json ./apps/web/package.json
 COPY packages/shared/package.json ./packages/shared/package.json
 COPY .husky/install.mjs ./.husky/install.mjs
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 
 COPY . .
-RUN npm run build
+RUN pnpm build
 
 FROM base AS runtime
 
@@ -45,10 +47,10 @@ COPY --from=ffmpeg /lib /lib
 COPY --from=deps --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=build --chown=nodejs:nodejs /app/apps/server/dist ./apps/server/dist
 COPY --from=build --chown=nodejs:nodejs /app/apps/worker/dist ./apps/worker/dist
-COPY --chown=nodejs:nodejs package*.json ./
+COPY --chown=nodejs:nodejs package.json ./
 
 USER nodejs
 
 EXPOSE 3000
 
-CMD ["npm", "start"]
+CMD ["node", "apps/server/dist/server.js"]
