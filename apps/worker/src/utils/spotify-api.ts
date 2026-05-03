@@ -1,73 +1,24 @@
-import { execFile } from 'child_process';
-import { promisify } from 'util';
+import { spawn } from 'child_process';
+import ytdl from '@distube/ytdl-core';
 import YTMusic from 'ytmusic-api';
 
-const INVIDIOUS_INSTANCES = [
-  'https://inv.nadeko.net',
-  'https://invidious.io',
-  'https://iv.ggtyler.dev',
-  'https://invidious.lunar.icu',
-  'https://i.uki.moe'
-];
+async function downloadWithYtdl(videoId: string, outputPath: string): Promise<void> {
+  const audioStream = ytdl(`https://www.youtube.com/watch?v=${videoId}`, {
+    quality: 'highestaudio',
+    filter: 'audioonly'
+  });
 
-const PIPED_INSTANCES = [
-  'https://pipedapi.kavin.rocks',
-  'https://piped-api.garudalinux.org',
-  'https://api.piped.yt',
-  'https://pipedapi.adminforge.de'
-];
-
-interface AudioFormat {
-  type?: string;
-  bitrate?: number;
-  url?: string;
+  await new Promise<void>((resolve, reject) => {
+    const ff = spawn('ffmpeg', ['-i', 'pipe:0', '-vn', '-acodec', 'libmp3lame', '-q:a', '0', '-y', outputPath]);
+    audioStream.pipe(ff.stdin);
+    audioStream.on('error', reject);
+    ff.stdin.on('error', () => {
+      /* swallow broken pipe when ffmpeg exits early */
+    });
+    ff.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`ffmpeg exited with code ${code}`))));
+    ff.on('error', reject);
+  });
 }
-
-async function tryInvidious(videoId: string): Promise<string | null> {
-  for (const instance of INVIDIOUS_INSTANCES) {
-    try {
-      const res = await fetch(`${instance}/api/v1/videos/${videoId}?local=true`, {
-        signal: AbortSignal.timeout(12000)
-      });
-      if (!res.ok) continue;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const data = (await res.json()) as any;
-      const best = ((data.adaptiveFormats ?? []) as AudioFormat[])
-        .filter((f) => f.type?.startsWith('audio/'))
-        .sort((a, b) => (b.bitrate ?? 0) - (a.bitrate ?? 0))[0];
-      if (best?.url) return best.url;
-    } catch {
-      // try next
-    }
-  }
-  return null;
-}
-
-async function tryPiped(videoId: string): Promise<string | null> {
-  for (const instance of PIPED_INSTANCES) {
-    try {
-      const res = await fetch(`${instance}/streams/${videoId}`, {
-        signal: AbortSignal.timeout(12000)
-      });
-      if (!res.ok) continue;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const data = (await res.json()) as any;
-      const best = ((data.audioStreams ?? []) as AudioFormat[]).sort((a, b) => (b.bitrate ?? 0) - (a.bitrate ?? 0))[0];
-      if (best?.url) return best.url;
-    } catch {
-      // try next
-    }
-  }
-  return null;
-}
-
-async function fetchAudioStreamUrl(videoId: string): Promise<string> {
-  const url = (await tryInvidious(videoId)) ?? (await tryPiped(videoId));
-  if (!url) throw new Error(`Failed to get audio stream for video ${videoId} from Invidious and Piped`);
-  return url;
-}
-
-const execFileAsync = promisify(execFile);
 
 // Scrapes track/album/playlist metadata from Spotify's embed page (__NEXT_DATA__).
 // No API keys required.
@@ -218,6 +169,5 @@ export async function fetchPlaylistInfo(url: string): Promise<PlaylistInfo> {
 }
 
 export async function downloadYouTubeTrack(videoId: string, outputPath: string): Promise<void> {
-  const streamUrl = await fetchAudioStreamUrl(videoId);
-  await execFileAsync('ffmpeg', ['-i', streamUrl, '-vn', '-acodec', 'libmp3lame', '-q:a', '0', '-y', outputPath]);
+  await downloadWithYtdl(videoId, outputPath);
 }
