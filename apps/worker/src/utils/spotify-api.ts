@@ -171,6 +171,7 @@ export async function fetchPlaylistInfo(url: string): Promise<PlaylistInfo> {
 export async function downloadYouTubeTrack(videoId: string, outputPath: string): Promise<void> {
   const base = outputPath.endsWith('.mp3') ? outputPath.slice(0, -4) : outputPath;
   const cookiesFile = await getCookiesFile();
+  const proxy = process.env['YTDLP_PROXY'];
   const args = [
     '--extract-audio',
     '--audio-format',
@@ -178,9 +179,12 @@ export async function downloadYouTubeTrack(videoId: string, outputPath: string):
     '--audio-quality',
     '0',
     '--no-playlist',
+    '--js-runtimes',
+    'nodejs',
     '--extractor-args',
-    'youtube:player_client=tv_embedded,mweb',
+    'youtube:player_client=web,tv_embedded',
     ...(cookiesFile ? ['--cookies', cookiesFile] : []),
+    ...(proxy ? ['--proxy', proxy] : []),
     '-o',
     `${base}.%(ext)s`,
     `https://www.youtube.com/watch?v=${videoId}`
