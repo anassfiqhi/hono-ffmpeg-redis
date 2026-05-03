@@ -1,24 +1,8 @@
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { writeFile, mkdtemp } from 'fs/promises';
-import { tmpdir } from 'os';
-import { join } from 'path';
 import YTMusic from 'ytmusic-api';
 
 const execFileAsync = promisify(execFile);
-
-let cookiesFilePath: string | null = null;
-
-async function getCookiesFile(): Promise<string | null> {
-  if (cookiesFilePath) return cookiesFilePath;
-  const b64 = process.env['YOUTUBE_COOKIES_B64'];
-  if (!b64) return null;
-  const dir = await mkdtemp(join(tmpdir(), 'yt-cookies-'));
-  const filePath = join(dir, 'cookies.txt');
-  await writeFile(filePath, Buffer.from(b64, 'base64'));
-  cookiesFilePath = filePath;
-  return filePath;
-}
 
 // Scrapes track/album/playlist metadata from Spotify's embed page (__NEXT_DATA__).
 // No API keys required.
@@ -170,7 +154,6 @@ export async function fetchPlaylistInfo(url: string): Promise<PlaylistInfo> {
 
 export async function downloadYouTubeTrack(videoId: string, outputPath: string): Promise<void> {
   const base = outputPath.endsWith('.mp3') ? outputPath.slice(0, -4) : outputPath;
-  const cookiesFile = await getCookiesFile();
   const proxy = process.env['YTDLP_PROXY'];
   const args = [
     '--extract-audio',
@@ -179,13 +162,8 @@ export async function downloadYouTubeTrack(videoId: string, outputPath: string):
     '--audio-quality',
     '0',
     '--no-playlist',
-    '--js-runtimes',
-    'node',
-    '--remote-components',
-    'ejs:github',
     '--extractor-args',
-    'youtube:player_client=web,tv_embedded',
-    ...(cookiesFile ? ['--cookies', cookiesFile] : []),
+    'youtube:player_client=ios',
     ...(proxy ? ['--proxy', proxy] : []),
     '-o',
     `${base}.%(ext)s`,
