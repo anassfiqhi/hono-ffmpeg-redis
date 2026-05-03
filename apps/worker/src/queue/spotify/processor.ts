@@ -1,21 +1,19 @@
 import type { Job } from 'bullmq';
 import type { JobResult } from '..';
 import type { SpotifyTrackJobData, SpotifyAlbumJobData, SpotifyPlaylistJobData } from '@shared/queue/spotify/schemas';
-import type { Track, Album, Playlist } from 'spottydl-better';
 import { mkdir } from 'fs/promises';
 import { basename, join } from 'path';
 import archiver from 'archiver';
 import { createWriteStream } from 'fs';
 import { uploadToS3 } from '@worker/utils/storage';
+import { fetchTrackInfo, fetchAlbumInfo, fetchPlaylistInfo, downloadYouTubeTrack } from '@worker/utils/spotify-api';
 
 async function zipDirectory(sourceDir: string, outputPath: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const output = createWriteStream(outputPath);
     const archive = archiver('zip', { zlib: { level: 6 } });
-
     output.on('close', resolve);
     archive.on('error', reject);
-
     archive.pipe(output);
     archive.directory(sourceDir, false);
     archive.finalize();
@@ -26,43 +24,28 @@ export async function processSpotifyTrack(job: Job<SpotifyTrackJobData>): Promis
   const { spotifyUrl, outputPath, uploadToS3: shouldUpload } = job.data;
 
   try {
-    const { getTrack, downloadTrack } = await import('spottydl-better');
-
-    const trackOrError = await getTrack(spotifyUrl);
-    if (typeof trackOrError === 'string') {
-      return { success: false, error: `Failed to get track info: ${trackOrError}` };
-    }
-    const track = trackOrError as Track;
+    const track = await fetchTrackInfo(spotifyUrl);
 
     const outputDir = outputPath.replace(/\/[^/]+$/, '');
     await mkdir(outputDir, { recursive: true });
 
-    const results = await downloadTrack(track, outputDir);
-
-    if (typeof results === 'string') {
-      return { success: false, error: `Download failed: ${results}` };
-    }
-
-    const succeeded = results.filter((r) => r.status === 'Success');
-    if (succeeded.length === 0) {
-      return { success: false, error: 'Track download failed' };
-    }
-
-    const downloadedFile = join(outputDir, succeeded[0]!.filename);
+    const sanitizedTitle = track.title.replace(/[/\\]/g, ' ');
+    const mp3Path = join(outputDir, `${sanitizedTitle}.mp3`);
+    await downloadYouTubeTrack(track.id, mp3Path);
 
     if (shouldUpload) {
-      const { url } = await uploadToS3(downloadedFile, 'audio/mpeg', basename(downloadedFile));
+      const { url } = await uploadToS3(mp3Path, 'audio/mpeg', basename(mp3Path));
       return {
         success: true,
         outputUrl: url,
-        metadata: { title: track.title, artist: track.artist, album: track.album }
+        metadata: { title: track.title, artist: track.artist }
       };
     }
 
     return {
       success: true,
-      outputPath: downloadedFile,
-      metadata: { title: track.title, artist: track.artist, album: track.album }
+      outputPath: mp3Path,
+      metadata: { title: track.title, artist: track.artist }
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -74,20 +57,17 @@ export async function processSpotifyAlbum(job: Job<SpotifyAlbumJobData>): Promis
   const { spotifyUrl, outputDir, outputPath, uploadToS3: shouldUpload } = job.data;
 
   try {
-    const { getAlbum, downloadAlbum } = await import('spottydl-better');
-
-    const albumOrError = await getAlbum(spotifyUrl);
-    if (typeof albumOrError === 'string') {
-      return { success: false, error: `Failed to get album info: ${albumOrError}` };
-    }
-    const album = albumOrError as Album;
+    const album = await fetchAlbumInfo(spotifyUrl);
 
     await mkdir(outputDir, { recursive: true });
 
-    const results = await downloadAlbum(album, outputDir, true);
-    if (typeof results === 'string') {
-      return { success: false, error: `Download failed: ${results}` };
-    }
+    await Promise.all(
+      album.tracks.map(async (track) => {
+        const sanitizedTitle = track.title.replace(/[/\\]/g, ' ');
+        const mp3Path = join(outputDir, `${sanitizedTitle}.mp3`);
+        await downloadYouTubeTrack(track.id, mp3Path);
+      })
+    );
 
     await zipDirectory(outputDir, outputPath);
 
@@ -116,20 +96,17 @@ export async function processSpotifyPlaylist(job: Job<SpotifyPlaylistJobData>): 
   const { spotifyUrl, outputDir, outputPath, uploadToS3: shouldUpload } = job.data;
 
   try {
-    const { getPlaylist, downloadPlaylist } = await import('spottydl-better');
-
-    const playlistOrError = await getPlaylist(spotifyUrl);
-    if (typeof playlistOrError === 'string') {
-      return { success: false, error: `Failed to get playlist info: ${playlistOrError}` };
-    }
-    const playlist = playlistOrError as Playlist;
+    const playlist = await fetchPlaylistInfo(spotifyUrl);
 
     await mkdir(outputDir, { recursive: true });
 
-    const results = await downloadPlaylist(playlist, outputDir);
-    if (typeof results === 'string') {
-      return { success: false, error: `Download failed: ${results}` };
-    }
+    await Promise.all(
+      playlist.tracks.map(async (track) => {
+        const sanitizedTitle = track.title.replace(/[/\\]/g, ' ');
+        const mp3Path = join(outputDir, `${sanitizedTitle}.mp3`);
+        await downloadYouTubeTrack(track.id, mp3Path);
+      })
+    );
 
     await zipDirectory(outputDir, outputPath);
 
