@@ -185,14 +185,14 @@ export async function uploadToS3(
   );
 
   let url: string;
-  if (env.S3_PUBLIC_URL) {
-    url = `${env.S3_PUBLIC_URL}/${key}`;
-  } else if (env.STORAGE_MODE === 'minio') {
-    const presignedTtl = env.S3_DEDUP_TTL_DAYS * 24 * 60 * 60;
-    const clampedTtl = Math.min(presignedTtl, 604800); // S3/MinIO max is 7 days
+  if (env.STORAGE_MODE === 'minio') {
+    // MinIO buckets are private by default; always use presigned URLs
+    const clampedTtl = Math.min(env.S3_DEDUP_TTL_DAYS * 24 * 60 * 60, 604800);
     url = await getSignedUrl(s3Client, new GetObjectCommand({ Bucket: env.S3_BUCKET, Key: key }), {
       expiresIn: clampedTtl
     });
+  } else if (env.S3_PUBLIC_URL) {
+    url = `${env.S3_PUBLIC_URL}/${key}`;
   } else {
     url = `${env.S3_ENDPOINT}/${env.S3_BUCKET}/${key}`;
   }
