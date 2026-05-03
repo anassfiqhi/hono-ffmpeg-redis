@@ -2,6 +2,45 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import YTMusic from 'ytmusic-api';
 
+const INVIDIOUS_INSTANCES = [
+  'https://invidious.kavin.rocks',
+  'https://yt.artemislena.eu',
+  'https://inv.tux.pizza',
+  'https://invidious.privacyredirect.com',
+  'https://invidious.nerdvpn.de'
+];
+
+interface InvFormat {
+  type?: string;
+  bitrate?: number;
+  url?: string;
+}
+
+async function fetchInvidiousAudioUrl(videoId: string): Promise<string> {
+  const errors: string[] = [];
+  for (const instance of INVIDIOUS_INSTANCES) {
+    try {
+      const res = await fetch(`${instance}/api/v1/videos/${videoId}?local=true`, {
+        signal: AbortSignal.timeout(15000)
+      });
+      if (!res.ok) {
+        errors.push(`${instance}: HTTP ${res.status}`);
+        continue;
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = (await res.json()) as any;
+      const best = ((data.adaptiveFormats ?? []) as InvFormat[])
+        .filter((f) => f.type?.startsWith('audio/'))
+        .sort((a, b) => (b.bitrate ?? 0) - (a.bitrate ?? 0))[0];
+      if (best?.url) return best.url;
+      errors.push(`${instance}: no audio formats`);
+    } catch (err) {
+      errors.push(`${instance}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  throw new Error(`All Invidious instances failed: ${errors.join('; ')}`);
+}
+
 const execFileAsync = promisify(execFile);
 
 // Scrapes track/album/playlist metadata from Spotify's embed page (__NEXT_DATA__).
@@ -153,21 +192,6 @@ export async function fetchPlaylistInfo(url: string): Promise<PlaylistInfo> {
 }
 
 export async function downloadYouTubeTrack(videoId: string, outputPath: string): Promise<void> {
-  const base = outputPath.endsWith('.mp3') ? outputPath.slice(0, -4) : outputPath;
-  const proxy = process.env['YTDLP_PROXY'];
-  const args = [
-    '--extract-audio',
-    '--audio-format',
-    'mp3',
-    '--audio-quality',
-    '0',
-    '--no-playlist',
-    '--extractor-args',
-    'youtube:player_client=ios',
-    ...(proxy ? ['--proxy', proxy] : []),
-    '-o',
-    `${base}.%(ext)s`,
-    `https://www.youtube.com/watch?v=${videoId}`
-  ];
-  await execFileAsync('yt-dlp', args);
+  const streamUrl = await fetchInvidiousAudioUrl(videoId);
+  await execFileAsync('ffmpeg', ['-i', streamUrl, '-vn', '-acodec', 'libmp3lame', '-q:a', '0', '-y', outputPath]);
 }
