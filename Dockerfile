@@ -33,8 +33,8 @@ COPY --from=ffmpeg /bin/ffmpeg /usr/local/bin/ffmpeg
 COPY --from=ffmpeg /bin/ffprobe /usr/local/bin/ffprobe
 COPY --from=ffmpeg /lib /lib
 
-ADD https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux /usr/local/bin/yt-dlp
-RUN chmod a+rx /usr/local/bin/yt-dlp
+RUN apk add --no-cache python3 py3-pip && \
+    pip3 install --break-system-packages yt-dlp
 
 COPY --from=build --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=build --chown=nodejs:nodejs /app/apps/server/dist ./apps/server/dist
