@@ -110,8 +110,11 @@ export async function checkS3Health(): Promise<void> {
     logger.info('✅ S3 health check passed');
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error(`❌ S3 health check failed: ${errorMessage}`);
-    throw new Error(`S3 health check failed: ${errorMessage}`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const cause = error instanceof Error ? ((error as any).cause ?? (error as any).$response ?? '') : '';
+    const detail = cause ? ` | cause: ${String(cause)}` : '';
+    logger.error(`❌ S3 health check failed: ${errorMessage}${detail}`);
+    throw new Error(`S3 health check failed: ${errorMessage}${detail}`);
   }
 }
 
