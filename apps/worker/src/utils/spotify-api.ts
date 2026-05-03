@@ -24,7 +24,16 @@ async function tryYouTube(videoId: string, outputPath: string): Promise<void> {
   await spawnFfmpegFromStream(audioStream, outputPath);
 }
 
+let scReady = false;
+async function initSoundCloud(): Promise<void> {
+  if (scReady) return;
+  const clientId = await playdl.getFreeClientID();
+  await playdl.setToken({ soundcloud: { client_id: clientId } });
+  scReady = true;
+}
+
 async function trySoundCloud(title: string, artist: string, outputPath: string): Promise<void> {
+  await initSoundCloud();
   const results = await playdl.search(`${title} ${artist}`, { source: { soundcloud: 'tracks' }, limit: 1 });
   const first = results[0];
   if (!first) throw new Error(`No SoundCloud results for: ${title} - ${artist}`);
