@@ -53,7 +53,7 @@ async function getCachedUpload(hash: string): Promise<UploadResult | null> {
     const data = CachedUploadSchema.parse(JSON.parse(cached));
 
     // Reconstruct URL from current config so config changes (e.g. S3_PUBLIC_URL) take effect immediately
-    const url = env.S3_PUBLIC_URL ? `${env.S3_PUBLIC_URL}/${data.key}` : data.url;
+    const url = env.S3_PUBLIC_URL ? `${env.S3_PUBLIC_URL}/${env.S3_BUCKET}/${data.key}` : data.url;
     logger.info({ hash, cacheKey, url }, 'S3 dedup cache hit');
 
     return { url, key: data.key };
@@ -186,7 +186,7 @@ export async function uploadToS3(
 
   let url: string;
   if (env.S3_PUBLIC_URL) {
-    url = `${env.S3_PUBLIC_URL}/${key}`;
+    url = `${env.S3_PUBLIC_URL}/${env.S3_BUCKET}/${key}`;
   } else if (env.STORAGE_MODE === 'minio') {
     const clampedTtl = Math.min(env.S3_DEDUP_TTL_DAYS * 24 * 60 * 60, 604800);
     url = await getSignedUrl(s3Client, new GetObjectCommand({ Bucket: env.S3_BUCKET, Key: key }), {
