@@ -180,7 +180,7 @@ export async function downloadYouTubeTrack(videoId: string, outputPath: string):
     '0',
     '--no-playlist',
     '--js-runtimes',
-    'nodejs',
+    'node',
     '--extractor-args',
     'youtube:player_client=web,tv_embedded',
     ...(cookiesFile ? ['--cookies', cookiesFile] : []),
