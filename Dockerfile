@@ -1,7 +1,5 @@
 ARG FFMPEG_TARGET_PLATFORM=linux/amd64
 
-FROM --platform=${FFMPEG_TARGET_PLATFORM} jrottenberg/ffmpeg:7.1-scratch AS ffmpeg
-
 FROM --platform=${FFMPEG_TARGET_PLATFORM} node:22.20.0-alpine AS base
 
 WORKDIR /app
@@ -29,12 +27,8 @@ FROM base AS runtime
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
 
-RUN apk add --no-cache python3 py3-pip && \
+RUN apk add --no-cache ffmpeg python3 py3-pip && \
     pip3 install --break-system-packages yt-dlp
-
-COPY --from=ffmpeg /bin/ffmpeg /usr/local/bin/ffmpeg
-COPY --from=ffmpeg /bin/ffprobe /usr/local/bin/ffprobe
-COPY --from=ffmpeg /lib /lib
 
 COPY --from=build --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=build --chown=nodejs:nodejs /app/apps/server/dist ./apps/server/dist
