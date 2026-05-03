@@ -1,23 +1,35 @@
 import { spawn } from 'child_process';
 import ytdl from '@distube/ytdl-core';
+import playdl from 'play-dl';
 import YTMusic from 'ytmusic-api';
 
-async function downloadWithYtdl(videoId: string, outputPath: string): Promise<void> {
-  const audioStream = ytdl(`https://www.youtube.com/watch?v=${videoId}`, {
-    quality: 'highestaudio',
-    filter: 'audioonly'
-  });
-
-  await new Promise<void>((resolve, reject) => {
+function spawnFfmpegFromStream(readable: NodeJS.ReadableStream, outputPath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
     const ff = spawn('ffmpeg', ['-i', 'pipe:0', '-vn', '-acodec', 'libmp3lame', '-q:a', '0', '-y', outputPath]);
-    audioStream.pipe(ff.stdin);
-    audioStream.on('error', reject);
+    readable.pipe(ff.stdin);
+    readable.on('error', reject);
     ff.stdin.on('error', () => {
-      /* swallow broken pipe when ffmpeg exits early */
+      /* swallow broken pipe */
     });
     ff.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`ffmpeg exited with code ${code}`))));
     ff.on('error', reject);
   });
+}
+
+async function tryYouTube(videoId: string, outputPath: string): Promise<void> {
+  const audioStream = ytdl(`https://www.youtube.com/watch?v=${videoId}`, {
+    quality: 'highestaudio',
+    filter: 'audioonly'
+  });
+  await spawnFfmpegFromStream(audioStream, outputPath);
+}
+
+async function trySoundCloud(title: string, artist: string, outputPath: string): Promise<void> {
+  const results = await playdl.search(`${title} ${artist}`, { source: { soundcloud: 'tracks' }, limit: 1 });
+  const first = results[0];
+  if (!first) throw new Error(`No SoundCloud results for: ${title} - ${artist}`);
+  const stream = await playdl.stream(first.url);
+  await spawnFfmpegFromStream(stream.stream, outputPath);
 }
 
 // Scrapes track/album/playlist metadata from Spotify's embed page (__NEXT_DATA__).
@@ -168,6 +180,15 @@ export async function fetchPlaylistInfo(url: string): Promise<PlaylistInfo> {
   return { name, owner, description, playlistCoverURL, tracks };
 }
 
-export async function downloadYouTubeTrack(videoId: string, outputPath: string): Promise<void> {
-  await downloadWithYtdl(videoId, outputPath);
+export async function downloadYouTubeTrack(
+  videoId: string,
+  title: string,
+  artist: string,
+  outputPath: string
+): Promise<void> {
+  try {
+    await tryYouTube(videoId, outputPath);
+  } catch {
+    await trySoundCloud(title, artist, outputPath);
+  }
 }

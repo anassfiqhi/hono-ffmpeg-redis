@@ -31,7 +31,7 @@ export async function processSpotifyTrack(job: Job<SpotifyTrackJobData>): Promis
 
     const sanitizedTitle = track.title.replace(/[/\\]/g, ' ');
     const mp3Path = join(outputDir, `${sanitizedTitle}.mp3`);
-    await downloadYouTubeTrack(track.id, mp3Path);
+    await downloadYouTubeTrack(track.id, track.title, track.artist, mp3Path);
 
     if (shouldUpload) {
       const { url } = await uploadToS3(mp3Path, 'audio/mpeg', basename(mp3Path));
@@ -65,7 +65,7 @@ export async function processSpotifyAlbum(job: Job<SpotifyAlbumJobData>): Promis
       album.tracks.map(async (track) => {
         const sanitizedTitle = track.title.replace(/[/\\]/g, ' ');
         const mp3Path = join(outputDir, `${sanitizedTitle}.mp3`);
-        await downloadYouTubeTrack(track.id, mp3Path);
+        await downloadYouTubeTrack(track.id, track.title, album.artist, mp3Path);
       })
     );
 
@@ -104,7 +104,7 @@ export async function processSpotifyPlaylist(job: Job<SpotifyPlaylistJobData>): 
       playlist.tracks.map(async (track) => {
         const sanitizedTitle = track.title.replace(/[/\\]/g, ' ');
         const mp3Path = join(outputDir, `${sanitizedTitle}.mp3`);
-        await downloadYouTubeTrack(track.id, mp3Path);
+        await downloadYouTubeTrack(track.id, track.title, track.artist, mp3Path);
       })
     );
 
