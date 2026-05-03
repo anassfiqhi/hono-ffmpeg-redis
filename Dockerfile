@@ -29,12 +29,12 @@ FROM base AS runtime
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
 
+RUN apk add --no-cache python3 py3-pip && \
+    pip3 install --break-system-packages yt-dlp
+
 COPY --from=ffmpeg /bin/ffmpeg /usr/local/bin/ffmpeg
 COPY --from=ffmpeg /bin/ffprobe /usr/local/bin/ffprobe
 COPY --from=ffmpeg /lib /lib
-
-RUN apk add --no-cache python3 py3-pip && \
-    pip3 install --break-system-packages yt-dlp
 
 COPY --from=build --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=build --chown=nodejs:nodejs /app/apps/server/dist ./apps/server/dist
