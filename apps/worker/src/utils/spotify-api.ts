@@ -161,6 +161,8 @@ export async function downloadYouTubeTrack(videoId: string, outputPath: string):
     '--audio-quality',
     '0',
     '--no-playlist',
+    '--extractor-args',
+    'youtube:player_client=android,web',
     '-o',
     `${base}.%(ext)s`,
     `https://www.youtube.com/watch?v=${videoId}`
