@@ -1,4 +1,5 @@
-import { S3Client, PutObjectCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, HeadBucketCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { readFile, stat } from 'fs/promises';
 import { createReadStream } from 'fs';
 import { createHash } from 'crypto';
@@ -77,7 +78,10 @@ async function cacheUpload(hash: string, result: UploadResult, contentType: stri
       fileSize
     };
 
-    const ttlSeconds = env.S3_DEDUP_TTL_DAYS * 24 * 60 * 60;
+    const ttlSeconds =
+      env.STORAGE_MODE === 'minio'
+        ? Math.min(env.S3_DEDUP_TTL_DAYS * 24 * 60 * 60, 604800) // presigned URL max 7 days
+        : env.S3_DEDUP_TTL_DAYS * 24 * 60 * 60;
     await redisConnection.setex(cacheKey, ttlSeconds, JSON.stringify(data));
 
     logger.info({ hash, url: result.url, ttlDays: env.S3_DEDUP_TTL_DAYS }, 'Cached upload result');
@@ -180,7 +184,18 @@ export async function uploadToS3(
     })
   );
 
-  const url = env.S3_PUBLIC_URL ? `${env.S3_PUBLIC_URL}/${key}` : `${env.S3_ENDPOINT}/${env.S3_BUCKET}/${key}`;
+  let url: string;
+  if (env.S3_PUBLIC_URL) {
+    url = `${env.S3_PUBLIC_URL}/${key}`;
+  } else if (env.STORAGE_MODE === 'minio') {
+    const presignedTtl = env.S3_DEDUP_TTL_DAYS * 24 * 60 * 60;
+    const clampedTtl = Math.min(presignedTtl, 604800); // S3/MinIO max is 7 days
+    url = await getSignedUrl(s3Client, new GetObjectCommand({ Bucket: env.S3_BUCKET, Key: key }), {
+      expiresIn: clampedTtl
+    });
+  } else {
+    url = `${env.S3_ENDPOINT}/${env.S3_BUCKET}/${key}`;
+  }
 
   const result: UploadResult = { url, key };
 
