@@ -86,6 +86,22 @@ async function cacheUpload(hash: string, result: UploadResult, contentType: stri
   }
 }
 
+function serializeError(err: unknown, depth = 0): string {
+  if (depth > 4) return '...';
+  if (err instanceof Error) {
+    const parts = [`${err.name}: ${err.message}`];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const cause = (err as any).cause;
+    if (cause) parts.push(`cause: ${serializeError(cause, depth + 1)}`);
+    return parts.join(' → ');
+  }
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return String(err);
+  }
+}
+
 export async function checkS3Health(): Promise<void> {
   if (env.STORAGE_MODE !== 's3') {
     return;
@@ -109,12 +125,9 @@ export async function checkS3Health(): Promise<void> {
     await s3Client.send(new HeadBucketCommand({ Bucket: env.S3_BUCKET }));
     logger.info('✅ S3 health check passed');
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const cause = error instanceof Error ? ((error as any).cause ?? (error as any).$response ?? '') : '';
-    const detail = cause ? ` | cause: ${String(cause)}` : '';
-    logger.error(`❌ S3 health check failed: ${errorMessage}${detail}`);
-    throw new Error(`S3 health check failed: ${errorMessage}${detail}`);
+    const detail = serializeError(error);
+    logger.error(`❌ S3 health check failed: ${detail}`);
+    throw new Error(`S3 health check failed: ${detail}`);
   }
 }
 
