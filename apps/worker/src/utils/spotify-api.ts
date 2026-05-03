@@ -1,6 +1,8 @@
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import YTMusic from 'ytmusic-api';
-import ytdl from '@distube/ytdl-core';
-import ffmpeg from 'fluent-ffmpeg';
+
+const execFileAsync = promisify(execFile);
 
 // Scrapes track/album/playlist metadata from Spotify's embed page (__NEXT_DATA__).
 // No API keys required.
@@ -151,15 +153,16 @@ export async function fetchPlaylistInfo(url: string): Promise<PlaylistInfo> {
 }
 
 export async function downloadYouTubeTrack(videoId: string, outputPath: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const stream = ytdl(`https://www.youtube.com/watch?v=${videoId}`, {
-      quality: 'highestaudio',
-      filter: 'audioonly'
-    });
-    ffmpeg(stream)
-      .audioBitrate(256)
-      .save(outputPath)
-      .on('error', (err) => reject(err))
-      .on('end', () => resolve());
-  });
+  const base = outputPath.endsWith('.mp3') ? outputPath.slice(0, -4) : outputPath;
+  await execFileAsync('yt-dlp', [
+    '--extract-audio',
+    '--audio-format',
+    'mp3',
+    '--audio-quality',
+    '0',
+    '--no-playlist',
+    '-o',
+    `${base}.%(ext)s`,
+    `https://www.youtube.com/watch?v=${videoId}`
+  ]);
 }
