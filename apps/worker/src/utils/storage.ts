@@ -103,13 +103,15 @@ function serializeError(err: unknown, depth = 0): string {
 }
 
 export async function checkS3Health(): Promise<void> {
-  if (env.STORAGE_MODE !== 's3') {
+  if (env.STORAGE_MODE !== 's3' && env.STORAGE_MODE !== 'minio') {
     return;
   }
 
   if (!env.S3_ENDPOINT || !env.S3_REGION || !env.S3_BUCKET || !env.S3_ACCESS_KEY_ID || !env.S3_SECRET_ACCESS_KEY) {
-    throw new Error('S3 mode enabled but configuration is incomplete');
+    throw new Error('S3/MinIO mode enabled but configuration is incomplete');
   }
+
+  logger.info(`🔗 Connecting to ${env.STORAGE_MODE === 'minio' ? 'MinIO' : 'S3'} endpoint: ${env.S3_ENDPOINT}`);
 
   const s3Client = new S3Client({
     endpoint: env.S3_ENDPOINT,
@@ -123,11 +125,11 @@ export async function checkS3Health(): Promise<void> {
 
   try {
     await s3Client.send(new HeadBucketCommand({ Bucket: env.S3_BUCKET }));
-    logger.info('✅ S3 health check passed');
+    logger.info(`✅ ${env.STORAGE_MODE === 'minio' ? 'MinIO' : 'S3'} health check passed`);
   } catch (error) {
     const detail = serializeError(error);
-    logger.error(`❌ S3 health check failed: ${detail}`);
-    throw new Error(`S3 health check failed: ${detail}`);
+    logger.error(`❌ ${env.STORAGE_MODE === 'minio' ? 'MinIO' : 'S3'} health check failed: ${detail}`);
+    throw new Error(`${env.STORAGE_MODE === 'minio' ? 'MinIO' : 'S3'} health check failed: ${detail}`);
   }
 }
 
@@ -136,12 +138,12 @@ export async function uploadToS3(
   contentType: string,
   originalFilename: string
 ): Promise<UploadResult> {
-  if (env.STORAGE_MODE !== 's3') {
-    throw new Error('S3 mode not enabled');
+  if (env.STORAGE_MODE !== 's3' && env.STORAGE_MODE !== 'minio') {
+    throw new Error('S3/MinIO mode not enabled');
   }
 
   if (!env.S3_ENDPOINT || !env.S3_REGION || !env.S3_BUCKET || !env.S3_ACCESS_KEY_ID || !env.S3_SECRET_ACCESS_KEY) {
-    throw new Error('S3 configuration missing');
+    throw new Error('S3/MinIO configuration missing');
   }
 
   const fileHash = await hashFile(filePath);
@@ -174,7 +176,7 @@ export async function uploadToS3(
       Key: key,
       Body: fileBuffer,
       ContentType: contentType,
-      ACL: 'public-read'
+      ...(env.STORAGE_MODE === 's3' && { ACL: 'public-read' })
     })
   );
 

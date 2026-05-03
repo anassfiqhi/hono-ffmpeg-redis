@@ -11,7 +11,7 @@ const schema = z.object({
   REDIS_URL: z.string().default('redis://localhost:6379'),
   WORKER_CONCURRENCY: z.coerce.number().default(5),
 
-  STORAGE_MODE: z.enum(['stateless', 's3']).default('stateless'),
+  STORAGE_MODE: z.enum(['stateless', 's3', 'minio']).default('stateless'),
 
   S3_ENDPOINT: z.string().optional(),
   S3_REGION: z.string().optional(),
