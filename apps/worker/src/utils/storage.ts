@@ -51,12 +51,12 @@ async function getCachedUpload(hash: string): Promise<UploadResult | null> {
     }
 
     const data = CachedUploadSchema.parse(JSON.parse(cached));
-    logger.info({ hash, cacheKey, url: data.url }, 'S3 dedup cache hit');
 
-    return {
-      url: data.url,
-      key: data.key
-    };
+    // Reconstruct URL from current config so config changes (e.g. S3_PUBLIC_URL) take effect immediately
+    const url = env.S3_PUBLIC_URL ? `${env.S3_PUBLIC_URL}/${data.key}` : data.url;
+    logger.info({ hash, cacheKey, url }, 'S3 dedup cache hit');
+
+    return { url, key: data.key };
   } catch (error) {
     logger.error({ error, hash }, 'Failed to get cached upload or validation failed');
     return null;
